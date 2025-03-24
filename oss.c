@@ -226,6 +226,8 @@ int main(int argc, char **argv) {
                                         	processTable[pcbIndex].pid = pid;
                                         	processTable[pcbIndex].startSeconds = clock->seconds;
                                         	processTable[pcbIndex].startNano = clock->nanoseconds;
+						processTable[pcbIndex].msgSentCount = 0;
+
                                         	currentProc++;
                                        		totalProc++;
 
@@ -275,9 +277,9 @@ void incrementClock(SimulatedClock *clock, int currentProc) { // This function s
 void printTable(SimulatedClock *clock) { // This function prints out the info about the 20 processes.
 	printf("\nOSS PID: %d SysClockS: %d SysClockNano: %d\n", getpid(), clock->seconds, clock->nanoseconds);
 	printf("Process Table: \n");
-	printf("Entry \t Occupied \t PID \t\t StartS \t StartN\n");
+	printf("Entry \t Occupied \t PID \t\t StartS \t StartNa \t MessagesSent\n");
 	for (int i = 0; i < 20; i++) {
-		printf("%d \t %d \t\t %d \t\t %d\t\t %d \n", i, processTable[i].occupied, processTable[i].pid, processTable[i].startSeconds, processTable[i].startNano);
+		printf("%d \t %d \t\t %d \t\t %d\t\t %d \t\t %d\n", i, processTable[i].occupied, processTable[i].pid, processTable[i].startSeconds, processTable[i].startNano, processTable[i].msgSentCount);
 	}
 }
 
