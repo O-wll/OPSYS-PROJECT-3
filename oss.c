@@ -28,10 +28,17 @@ struct PCB {
 	pid_t pid;
 	int startSeconds;
 	int startNano;
+	int msgSentCount; // Track amount of msges sent.
 };
 struct PCB processTable[20];
 
-void incrementClock(SimulatedClock *clock);
+typedef struct ossMSG {
+	long mtype;
+	int msg;
+};
+
+
+void incrementClock(SimulatedClock *clock, int currentProc);
 void signalHandler(int sig, int shmid, SimulatedClock* clock);
 void printTable(SimulatedClock *clock);
 void help();
@@ -129,7 +136,7 @@ int main(int argc, char **argv) {
 	srand(time(NULL));
 
 	while(1) { // OSS loop
-		incrementClock(clock);
+		incrementClock(clock, currentProc);
 
 		pid_t killedPid = waitpid(-1, &status, WNOHANG); // Non blocking check for terminated child.
 
@@ -226,8 +233,14 @@ int main(int argc, char **argv) {
 	return 0;
 }
 
-void incrementClock(SimulatedClock *clock) { // This function simulates the increment of our simulated clock.
-	clock->nanoseconds += 100000; // Start increasing in milliseconds
+void incrementClock(SimulatedClock *clock, int currentProc) { // This function simulates the increment of our simulated clock.
+
+	if (currentProc > 0) {
+		clock->nanoseconds += (250 * 100000) / currentProc;
+	} else {
+		clock->nanoseconds += (250 * 100000);
+	}
+
 
 	while (clock->nanoseconds >= NANO_TO_SEC) { // Expect even after reducing nano seconds to have a bit of remaining nano seconds, while ensures that if they build up, that they'll be reduced properly.
 		clock->seconds++;
