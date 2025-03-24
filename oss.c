@@ -59,9 +59,10 @@ int main(int argc, char **argv) {
 	// Variables for Interval
 	int lastLaunchSec = 0;
 	int lastLaunchNano = 0;
+	char *logFileName = NULL;
 
 	// User Input handler
-	while ((userInput = getopt(argc, argv, "n:s:t:i:h")) != -1) {
+	while ((userInput = getopt(argc, argv, "n:s:t:i:f:h")) != -1) {
 		switch(userInput) {
 			case 'n': // How many child processes to launch.
 				childProcess = atoi(optarg);
@@ -92,6 +93,9 @@ int main(int argc, char **argv) {
 					printf("Error: interval must be positive. \n");
                                         exit(1);
                                 }
+				break;
+			case 'f': // Input name of log file
+				logFileName = optarg;
                                 break;
 			case 'h': // Prints out help function.
 				help();
@@ -100,6 +104,14 @@ int main(int argc, char **argv) {
 				printf("Error: Invalid argument detected \n");
 				printf("Usage: ./oss.c -h to learn how to use this program \n");
 				exit(1);
+		}
+	}
+
+	if (logFileName != NULL) {
+		userFile = fopen(logFileName, "w");
+		if (!userfile) {
+			print("Error: fopen failed.");
+			exit(1);
 		}
 	}
 
