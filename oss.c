@@ -113,16 +113,16 @@ int main(int argc, char **argv) {
 	}
 
 	if (logFileName != NULL) {
-		userFile = fopen(logFileName, "w");
-		if (!userfile) {
-			print("Error: fopen failed.");
+		logFilePtr = fopen(logFileName, "w");
+		if (!logFilePtr) {
+			printf("Error: fopen failed.");
 			exit(1);
 		}
 	}
 
 	int msgqid = msgget(MSG_KEY, IPC_CREAT | 0666); // Creating message queue.
 
-	if (msgiq == -1) {
+	if (msgqid == -1) {
 		printf("Error: msgget failed.");
 		exit(1);
 	}
