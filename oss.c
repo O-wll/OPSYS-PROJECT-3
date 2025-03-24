@@ -37,7 +37,7 @@ struct PCB processTable[20];
 typedef struct ossMSG {
 	long mtype;
 	int msg;
-};
+} ossMSG;
 
 
 void incrementClock(SimulatedClock *clock, int currentProc);
@@ -118,12 +118,19 @@ int main(int argc, char **argv) {
 			printf("Error: fopen failed.");
 			exit(1);
 		}
+	} 
+	else {
+		logFilePtr = fopen("Log File", "w");
+		if (!logFilePtr) {
+			printf("Error: fopen failed.");
+                        exit(1);
+                }
 	}
 
 	int msgqid = msgget(MSG_KEY, IPC_CREAT | 0666); // Creating message queue.
 
 	if (msgqid == -1) {
-		printf("Error: msgget failed.");
+		printf("Error: msgget failed. \n");
 		exit(1);
 	}
 
@@ -150,6 +157,7 @@ int main(int argc, char **argv) {
         	processTable[i].pid = 0;
         	processTable[i].startSeconds = 0;
        		processTable[i].startNano = 0;
+		processTable[i].msgSentCount = 0;
 	}
 
 	// Start the timer for 60 real seconds.
@@ -175,6 +183,46 @@ int main(int argc, char **argv) {
 			killedPid = waitpid(-1, &status, WNOHANG);
 		}
 		
+		int targetChild = -1; // Target child to send message to
+		for (int i = 0; i < 20; i++) {
+			if (processTable[i].occupied) {
+				targetChild = i; // Target child selected
+			}
+			break;
+		}
+		
+		// Logic for sending worker a message.
+		if (targetChild != -1) { // If child is selected
+			ossMSG msg; // ossMSG object created.
+			msg.mtype = processTable[targetChild].pid;
+			msg.msg = 1; // User Process is/is still running.
+			
+			if (msgsnd(msgqid, &msg, sizeof(msg.msg), 0) == -1) { // Sending message to worker and also checking if the command fails
+				printf("Error: msgsend failed.\n");
+				exit(1);
+			} 
+			else { // Print to screen and logfile.
+				printf("OSS: Sending message to worker=%d PID=%d at time %d:%d \n", targetChild, processTable[targetChild].pid, clock->seconds, clock->nanoseconds);
+				fprintf(logFilePtr, "OSS: Sending message to worker=%d PID=%d at time %d:%d \n", targetChild, processTable[targetChild].pid, clock->seconds, clock->nanoseconds);
+				// Update messages sent and total messages
+				processTable[targetChild].msgSentCount++;
+				totalMsgSent++;
+			}
+			// Logic for receiving msg from worker.
+			ossMSG receiveMsg;
+			if (msgrcv(msgqid, &receiveMsg, sizeof(receiveMsg.msg), processTable[targetChild].pid, 0) == -1) { // Receive message from worker, also check if command fail
+				printf("Error: msgrcv failed. \n");
+			}
+			else { // Print to screen and log file.
+				printf("OSS: Receiving message from worker=%d PID=%d at time %d:%d msg=%d \n", targetChild, processTable[targetChild].pid, clock->seconds, clock->nanoseconds, receiveMsg.msg);
+				fprintf(logFilePtr, "OSS: Receiving message from worker=%d PID=%d at time %d:%d msg=%d \n", targetChild, processTable[targetChild].pid, clock->seconds, clock->nanoseconds, receiveMsg.msg);
+				if (receiveMsg.msg == 0) { // 0 indicates child is going to terminate.
+					printf("OSS: Worker index=%d is planning to terminate/ \n", targetChild);
+					fprintf(logFilePtr, "OSS: Worker index=%d is planning to terminate/ \n", targetChild);
+				}
+			}
+		}
+
 		// When dealing with something as big as nano seconds (1 * 10^9), you should use long.
 		long currentTimeNano = (long)clock->seconds * NANO_TO_SEC + clock->nanoseconds;
         	long lastPrintNano = (long)checkSec * NANO_TO_SEC + checkNano;
@@ -244,18 +292,30 @@ int main(int argc, char **argv) {
 		}
 	}
 
+	printf("[OSS] Final summary:\n");
+    	printf("Total processes launched: %d\n", totalProc);
+	printf("Total messages sent: %d\n", totalMsgSent);
+
 	// Detach shared memory
     	if (shmdt(clock) == -1) {
-        	printf("Error: Shared memory detachment failed");
+        	printf("Error: Shared memory detachment failed \n");
 		exit(1);
     	}	
 
     	// Remove shared memory
     	if (shmctl(shmid, IPC_RMID, NULL) == -1) {
-        	printf("Error: Removing memory failed");
+        	printf("Error: Removing memory failed \n");
 		exit(1);
     	}
 	
+	if (msgctl(msgqid, IPC_RMID, NULL) == -1) {
+		printf("Error: Removing msg queue failed. \n");
+		exit(1);
+	}
+	
+	// Close log file.
+	fclose(logFilePtr);
+
 	return 0;
 }
 
@@ -285,10 +345,10 @@ void printTable(SimulatedClock *clock) { // This function prints out the info ab
 
 void signalHandler(int sig, int shmid, SimulatedClock* clock) { // This is our signal handler, if 60 real seconds have passed, then kill all child processes and exit.
 	if (sig == SIGALRM) {
-		fprintf(stderr, "\n[OSS] Alarm signal caught, terminating all processes.\n");
+		fprintf(stderr, "Alarm signal caught, terminating all processes.\n");
 	} 
 	else if (sig == SIGINT) {
-		fprintf(stderr, "\n[OSS] Ctrl-C signal caught, terminating all processes.\n");
+		fprintf(stderr, "Ctrl-C signal caught, terminating all processes.\n");
 	}
 
 	for(int i = 0; i < 20; i++){
