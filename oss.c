@@ -4,15 +4,17 @@
 #include <signal.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <sys/msg.h>
 #include <sys/shm.h> // For shared memory
 #include <sys/ipc.h> // Also for shared memory, allows worker class to access shared memory
 #include <time.h>
 
 #define SHM_KEY 854038
+#define MSG_KEY 864049 // Creating msg key 
 #define NANO_TO_SEC 1000000000 
 
 // Author: Dat Nguyen
-// 03/4/2025
+// 03/24/2025
 // oss.c is the main program that creates shared memory and have the SimulatedClock knowledge, Program explained in ./oss -h
 
 // Using a structure for our simulated clock, storing seconds and nanoseconds.
@@ -51,6 +53,7 @@ int main(int argc, char **argv) {
 	int interval = 100;
 	int totalProc = 0;
 	int currentProc = 0;
+	int totalMsgSent = 0;
 	int status;
 	pid_t pid;
 	// These variables are specifically for our table.
@@ -59,7 +62,9 @@ int main(int argc, char **argv) {
 	// Variables for Interval
 	int lastLaunchSec = 0;
 	int lastLaunchNano = 0;
+	// Logfile variables
 	char *logFileName = NULL;
+	FILE *logFilePtr = NULL;
 
 	// User Input handler
 	while ((userInput = getopt(argc, argv, "n:s:t:i:f:h")) != -1) {
@@ -115,6 +120,12 @@ int main(int argc, char **argv) {
 		}
 	}
 
+	int msgqid = msgget(MSG_KEY, IPC_CREAT | 0666); // Creating message queue.
+
+	if (msgiq == -1) {
+		printf("Error: msgget failed.");
+		exit(1);
+	}
 
 	int shmid = shmget(SHM_KEY, sizeof(SimulatedClock), IPC_CREAT | 0666); // Creating shared memory using shmget. 
     	
