@@ -154,6 +154,7 @@ int main(int argc, char **argv) {
 
 	// Start the timer for 60 real seconds.
 	signal(SIGALRM, (void(*)(int))signalHandler);
+	signal(SIGINT, (void(*)(int))signalHandler);
 	alarm(60);
 
 	srand(time(NULL));
@@ -281,8 +282,13 @@ void printTable(SimulatedClock *clock) { // This function prints out the info ab
 }
 
 void signalHandler(int sig, int shmid, SimulatedClock* clock) { // This is our signal handler, if 60 real seconds have passed, then kill all child processes and exit.
-	fprintf(stderr, "\n[OSS] Alarm signal caught, terminating all processes.\n");
-    	
+	if (sig == SIGALRM) {
+		fprintf(stderr, "\n[OSS] Alarm signal caught, terminating all processes.\n");
+	} 
+	else if (sig == SIGINT) {
+		fprintf(stderr, "\n[OSS] Ctrl-C signal caught, terminating all processes.\n");
+	}
+
 	for(int i = 0; i < 20; i++){
         	if(processTable[i].occupied) {
 		       	kill(processTable[i].pid, SIGTERM);
