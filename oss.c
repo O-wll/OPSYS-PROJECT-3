@@ -59,6 +59,9 @@ int main(int argc, char **argv) {
 	// Variables for Interval
 	int lastLaunchSec = 0;
 	int lastLaunchNano = 0;
+	// These variables are specifically for our table.
+	int checkSec = 0;
+	int checkNano = 0;
 	// Logfile variables
 	char *logFileName = NULL;
 	FILE *logFilePtr = NULL;
@@ -222,6 +225,13 @@ int main(int argc, char **argv) {
 
 		// When dealing with something as big as nano seconds (1 * 10^9), you should use long.
 		long currentTimeNano = (long)clock->seconds * NANO_TO_SEC + clock->nanoseconds;
+		long lastPrintNano = (long)checkSec * NANO_TO_SEC + checkNano;
+
+		if (currentTimeNano - lastPrintNano >= 500000000) {
+			printTable(clock);
+            		checkSec = clock->seconds;
+            		checkNano = clock->nanoseconds;
+        	}
 		
 		// Child launching process, ensure that we have not reached total processes ran and that we are not exceeding sim.
                 if ((totalProc < childProcess) && (currentProc < simul)) {
