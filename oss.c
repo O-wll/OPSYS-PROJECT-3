@@ -56,9 +56,6 @@ int main(int argc, char **argv) {
 	int totalMsgSent = 0;
 	int status;
 	pid_t pid;
-	// These variables are specifically for our table.
-	int checkSec = 0;
-	int checkNano = 0;
 	// Variables for Interval
 	int lastLaunchSec = 0;
 	int lastLaunchNano = 0;
@@ -120,7 +117,7 @@ int main(int argc, char **argv) {
 		}
 	} 
 	else {
-		logFilePtr = fopen("Log File", "w");
+		logFilePtr = fopen("LogFile.txt", "w");
 		if (!logFilePtr) {
 			printf("Error: fopen failed.");
                         exit(1);
@@ -187,10 +184,10 @@ int main(int argc, char **argv) {
 		for (int i = 0; i < 20; i++) {
 			if (processTable[i].occupied) {
 				targetChild = i; // Target child selected
+				break;
 			}
-			break;
 		}
-		
+
 		// Logic for sending worker a message.
 		if (targetChild != -1) { // If child is selected
 			ossMSG msg; // ossMSG object created.
@@ -225,14 +222,7 @@ int main(int argc, char **argv) {
 
 		// When dealing with something as big as nano seconds (1 * 10^9), you should use long.
 		long currentTimeNano = (long)clock->seconds * NANO_TO_SEC + clock->nanoseconds;
-        	long lastPrintNano = (long)checkSec * NANO_TO_SEC + checkNano;
 		
-		// Check to see if the difference between the current time and the time last print >= 0.5 seconds which is 5 followed by 9 zeros in nanoseconds.
-		if (currentTimeNano - lastPrintNano >= 500000000) {
-			printTable(clock);
-            		checkSec = clock->seconds;
-            		checkNano = clock->nanoseconds;
-        	}
 		// Child launching process, ensure that we have not reached total processes ran and that we are not exceeding sim.
                 if ((totalProc < childProcess) && (currentProc < simul)) {
                         // Check to see if time since last child process launch exceeds interval
@@ -282,6 +272,8 @@ int main(int argc, char **argv) {
                                         	// Update last launch time
                                         	lastLaunchSec = clock->seconds;
 						lastLaunchNano = clock->nanoseconds;
+
+						printTable(clock);
 					}
 				}
 			}
@@ -322,9 +314,9 @@ int main(int argc, char **argv) {
 void incrementClock(SimulatedClock *clock, int currentProc) { // This function simulates the increment of our simulated clock.
 
 	if (currentProc > 0) {
-		clock->nanoseconds += (250 * 100000) / currentProc;
+		clock->nanoseconds += (250 * 1000000) / currentProc;
 	} else {
-		clock->nanoseconds += (250 * 100000);
+		clock->nanoseconds += (250 * 1000000);
 	}
 
 
@@ -368,4 +360,5 @@ void help() {
     	printf("-s : Maximum number of children to run simultaneously.\n");
     	printf("-t : Upper bound (seconds) for random child runtime generation.\n");
     	printf("-i : Interval in milliseconds to wait before launching another child.\n");
+	printf("-f : Logfile name \n");
 }
