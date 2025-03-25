@@ -115,14 +115,14 @@ int main(int argc, char **argv) {
 	if (logFileName != NULL) {
 		logFilePtr = fopen(logFileName, "w");
 		if (!logFilePtr) {
-			printf("Error: fopen failed.");
+			printf("Error: fopen failed. \n");
 			exit(1);
 		}
 	} 
 	else {
 		logFilePtr = fopen("LogFile.txt", "w");
 		if (!logFilePtr) {
-			printf("Error: fopen failed.");
+			printf("Error: fopen failed. \n");
                         exit(1);
                 }
 	}
@@ -130,20 +130,20 @@ int main(int argc, char **argv) {
 	int msgqid = msgget(MSG_KEY, IPC_CREAT | 0666); // Creating message queue.
 
 	if (msgqid == -1) {
-		printf("Error: msgget failed. \n");
+		printf("Error: OSS msgget failed. \n");
 		exit(1);
 	}
 
 	int shmid = shmget(SHM_KEY, sizeof(SimulatedClock), IPC_CREAT | 0666); // Creating shared memory using shmget. 
     	
 	if (shmid == -1) { // If shmid is -1 as a result of shmget failing and returning -1, error message will print.
-        	printf("Error: shmget failed. \n");
+        	printf("Error: OSS shmget failed. \n");
         	exit(1);
     	}
 	
 	SimulatedClock *clock = (SimulatedClock *)shmat(shmid, NULL, 0); // Attach shared memory, clock is now a pointer to SimulatedClock structure.
 	if (clock == (void *)-1) { // if shmat, the attaching shared memory function, fails, it returns an invalid memory address.
-        	printf("Error: shared memory attachment failed. \n");
+        	printf("Error: OSS shared memory attachment failed. \n");
         	exit(1);
     	}
 
@@ -198,7 +198,7 @@ int main(int argc, char **argv) {
 			msg.msg = 1; // User Process is/is still running.
 			
 			if (msgsnd(msgqid, &msg, sizeof(msg.msg), 0) == -1) { // Sending message to worker and also checking if the command fails
-				printf("Error: msgsend failed.\n");
+				printf("Error: OSS msgsend failed.\n");
 				exit(1);
 			} 
 			else { // Print to screen and logfile.
@@ -211,7 +211,7 @@ int main(int argc, char **argv) {
 			// Logic for receiving msg from worker.
 			ossMSG receiveMsg;
 			if (msgrcv(msgqid, &receiveMsg, sizeof(receiveMsg.msg), processTable[targetChild].pid, 0) == -1) { // Receive message from worker, also check if command fail
-				printf("Error: msgrcv failed. \n");
+				printf("Error: OSS msgrcv failed. \n");
 			}
 			else { // Print to screen and log file.
 				printf("OSS: Receiving message from worker=%d PID=%d at time %d:%d msg=%d \n", targetChild, processTable[targetChild].pid, clock->seconds, clock->nanoseconds, receiveMsg.msg);
@@ -300,7 +300,7 @@ int main(int argc, char **argv) {
 
 	// Detach shared memory
     	if (shmdt(clock) == -1) {
-        	printf("Error: Shared memory detachment failed \n");
+        	printf("Error: OSS Shared memory detachment failed \n");
 		exit(1);
     	}	
 
