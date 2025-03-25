@@ -4,12 +4,14 @@
 #include <sys/shm.h>
 #include <sys/ipc.h>
 #include <sys/types.h>
+#include <sys/msg.h>
 
 #define SHM_KEY 854038
+#define MSG_KEY 864049
 #define NANO_TO_SEC 1000000000
 
 // Author: Dat Nguyen
-// Date: 03/04/2025
+// Date: 03/24/2025
 // worker.c is a program that is called as a child process from oss.c. It prints info every second about the PID, PPID, the workers lifetime, and info about simulatedClock.
 
 // SimulatedClock structure that will be used as our system clock required in project.
@@ -17,6 +19,11 @@ typedef struct SimulatedClock {
 	int seconds;
 	int nanoseconds;
 } SimulatedClock;
+
+typedef struct ossMSG { // Structure to communicate with OSS
+	long mtype;
+	int msg;
+} ossMSG;
 
 int main(int argc, char** argv) {
 	
@@ -27,7 +34,7 @@ int main(int argc, char** argv) {
 	}
 
 	int secLimit = atoi(argv[1]);
-	int nanoLimit = atoi(argv[1]);
+	int nanoLimit = atoi(argv[2]);
 
 	// Attach to the shared memory (created by oss.c)
     	int shmid = shmget(SHM_KEY, sizeof(SimulatedClock), 0666);
@@ -40,6 +47,13 @@ int main(int argc, char** argv) {
 	SimulatedClock* clockSHM = (SimulatedClock*) shmat(shmid, NULL, 0);
     	if (clockSHM == (void*)-1) {
 		printf("Error: pointing to shm failed. \n");
+        	exit(1);
+	}
+
+	// Get the message queue (created by oss.c)
+    	int msgqid = msgget(MSG_KEY, 0666);
+    	if (msgqid == -1) {
+        	printf("Error: worker msgget failed\n");
         	exit(1);
 	}
 
@@ -60,35 +74,70 @@ int main(int argc, char** argv) {
 	
 	// Initial print
 	printf("\nWORKER PID: %d PPID: %d SysClockS: %d SysClockNano: %d TermTimeS: %d TermTimeNano: %d --Just Starting\n", getpid(), getppid(), time.seconds, time.nanoseconds, lifeSec, lifeNano );
+	
 	// Variables in main loop. 
-	int lastTime = time.seconds; 
-	int secPassed = 0;
+	int iteration = 1;
+	ossMSG msg, receiveMsg;
 
-	while(1) {
-		// Keeping track of the time passed.
+	do { // Getting message from oss, main loop.
+		if (msgrcv(msgqid, &receiveMsg, sizeof(receiveMsg.msg), getpid(), 0) == -1) {
+			printf("Error: worker msgrcv failed. \n");
+			exit(1);
+		}
+
 		int currentSec = clockSHM->seconds;
 		int currentNano = clockSHM->nanoseconds;
 
-		// If current sec, the simulated clock, is > than lifeSec, the lifetime of the worker, then terminate. Secondary condition in case first isn't fulfilled but still over lifetime.
-		if ((currentSec > lifeSec) || ((currentSec >= lifeSec) && currentNano >= lifeNano)) {
+		int terminationStatus = 0; // Indicator if its time for worker to terminate
+		if ((currentSec > lifeSec) || ((currentSec == lifeSec) && (currentNano >= lifeNano))) { // Check if termination status is reached
+			terminationStatus = 1;
+		}
+
+		if (!terminationStatus) { // Main printing loop		
+			if (iteration == 1) {
+				printf("\nWORKER PID: %d PPID: %d SysClockS: %d SysClockNano: %d TermTimeS: %d TermTimeNano: %d --%d iteration have passed since it started\n", getpid(), getppid(), clockSHM->seconds, clockSHM->nanoseconds, lifeSec, lifeNano, iteration);
+			}
+			else {
+				printf("\nWORKER PID: %d PPID: %d SysClockS: %d SysClockNano: %d TermTimeS: %d TermTimeNano: %d --%d iterations have passed since it started\n", getpid(), getppid(), clockSHM->seconds, clockSHM->nanoseconds, lifeSec, lifeNano, iteration);
+			}
+		}
+		else { // Print final message before sending message and terminating. 
+			if (iteration == 1) {
+                                printf("\nWORKER PID: %d PPID: %d SysClockS: %d SysClockNano: %d TermTimeS: %d TermTimeNano: %d --Terminating after sending message back to oss after %d iteration\n", getpid(), getppid(), clockSHM->seconds, clockSHM->nanoseconds, lifeSec, lifeNano, iteration);
+                        }
+			else {
+				printf("\nWORKER PID: %d PPID: %d SysClockS: %d SysClockNano: %d TermTimeS: %d TermTimeNano: %d --Terminating after sending message back to oss after %d iteration\n", getpid(), getppid(), clockSHM->seconds, clockSHM->nanoseconds, lifeSec, lifeNano, iteration);
+			}
+		}
+		
+		// Prepping to send message
+		msg.mtype = getpid();
+		if (terminationStatus) {
+			msg.msg = 0;
+		}
+		else {
+			msg.msg = 1;
+		}
+		
+		// Sending message
+		if (msgsnd(msgqid, &msg, sizeof(msg), 0) == -1) {
+			printf("Error: worker msgsnd failed \n.");
+			exit(1);
+		}
+		
+		// Increase iterations
+		iteration++;
+
+		// Terminate if lifespan reached.
+		if (terminationStatus) {
 			break;
 		}
-
-		if (currentSec != lastTime) { // If simulated clock changes, print this message.
-			secPassed = currentSec - time.seconds;
-			printf("\nWORKER PID: %d PPID: %d SysClockS: %d SysClockNano: %d TermTimeS: %d TermTimeNano: %d --%d seconds have passed\n", getpid(), getppid(), currentSec, currentNano, lifeSec, lifeNano, secPassed);
-			lastTime = currentSec; // Updating lastTime for the next print message.
-		}
-	}
-
-	// Printing final message after termination
-	printf("\nWORKER PID: %d PPID: %d SysClockS: %d SysClockNano: %d TermTimeS: %d TermTimeNano: %d --Termination\n", getpid(), getppid(), clockSHM->seconds, clockSHM->nanoseconds, lifeSec, lifeNano);
-
+	
+	} while(1);
 	// Detach shared memory
     	if (shmdt(clockSHM) == -1) {
-        	perror("Error: Detached Failed \n");
-        	exit(1);
-    	}
-
+        	perror("Error: worker Detached Failed \n");
+		exit(1);
+	}
 	return 0;	
 }
