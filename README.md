@@ -11,10 +11,15 @@ Description of Project:
 This project utilizes a simulated clock and shared memory. oss.c creates shared memory and shares the SimulatedClock struct, worker.c will have access to this shared memory. oss.c initializes the clock and forks child processes, also known as workers. worker.c prints out the PID, PPID, time on simulated clock, the lifetime of the worker, and how many seconds have passed since worker child was initiated. This project differs from project 2 because it uses a message queueing system that is communication between OSS and worker, the msges they send are 0 or 1, 0 indicates termination of the child, 1 indicates keep running, they use this message system to communicate when a child should terminate.
  
 User will be able to:
+
 Control how many total child/workers there are.
+
 Control how many total child/workers run at once.
+
 Control how long the child process will last/
+
 Control the interval of when child processes run.
+
 View the log file of OSS output (worker not included.)
 
 How to compile, build, and use project:
@@ -30,6 +35,9 @@ When done and want to delete, run 'make clean' and the exe and object files will
 Issues Ran Into:
 
 Couldn't test if alarm logic, for 60 seconds real time, works, theoretically it should.
+
 Ran into a sizeof error that caused error messages to send in the output.
+
 Github updates weren't as consistent as I hoped they were.
+
 General syntax/coding slipups that weren't noticed until testing.
