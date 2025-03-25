@@ -120,7 +120,7 @@ int main(int argc, char** argv) {
 		}
 		
 		// Sending message
-		if (msgsnd(msgqid, &msg, sizeof(msg), 0) == -1) {
+		if (msgsnd(msgqid, &msg, sizeof(msg.msg), 0) == -1) {
 			printf("Error: worker msgsnd failed \n.");
 			exit(1);
 		}
